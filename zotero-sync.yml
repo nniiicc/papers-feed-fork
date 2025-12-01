@@ -1,0 +1,104 @@
+name: Sync Zotero Library
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Sync mode'
+        required: true
+        default: 'incremental'
+        type: choice
+        options:
+          - incremental
+          - historical
+          - init
+      days:
+        description: 'Days to look back (historical mode only)'
+        required: false
+        default: '14'
+      collection:
+        description: 'Only sync from this collection (optional)'
+        required: false
+        default: ''
+      skip_update:
+        description: 'Skip updating existing items'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_ZOTERO_SYNC != 'false' }}
+    permissions:
+      issues: write
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install pyzotero requests loguru
+      
+      - name: Check Zotero credentials
+        id: check-creds
+        run: |
+          if [ -z "${{ secrets.ZOTERO_LIBRARY_ID }}" ] || [ -z "${{ secrets.ZOTERO_API_KEY }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::warning::Zotero credentials not configured. Skipping sync."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Sync Zotero to Issues
+        if: steps.check-creds.outputs.skip != 'true'
+        env:
+          ZOTERO_LIBRARY_ID: ${{ secrets.ZOTERO_LIBRARY_ID }}
+          ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          MODE="${{ github.event.inputs.mode || 'incremental' }}"
+          DAYS="${{ github.event.inputs.days || '14' }}"
+          COLLECTION="${{ github.event.inputs.collection || '' }}"
+          SKIP_UPDATE="${{ github.event.inputs.skip_update || 'false' }}"
+          
+          ARGS=""
+          
+          if [ "$MODE" = "init" ]; then
+            ARGS="--init"
+          elif [ "$MODE" = "incremental" ]; then
+            ARGS="--incremental"
+          else
+            ARGS="--days $DAYS"
+          fi
+          
+          if [ -n "$COLLECTION" ]; then
+            ARGS="$ARGS --collection \"$COLLECTION\""
+          fi
+          
+          if [ "$SKIP_UPDATE" = "true" ]; then
+            ARGS="$ARGS --no-update"
+          fi
+
+          python scripts/zotero_sync.py $ARGS
+
+      - name: Report sync failure
+        if: failure()
+        run: |
+          echo "::error::Zotero sync failed. Check the logs above for details."
+          echo "Common issues:"
+          echo "  - Invalid Zotero credentials"
+          echo "  - Network connectivity problems"
+          echo "  - Rate limiting from GitHub or Zotero APIs"

@@ -1,146 +1,250 @@
 <!DOCTYPE html>
-<!-- frontend/index.html - Root of GitHub Pages site -->
-<html lang="en">
+<html lang="en" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DigThatData Papers Feed</title>
-  
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            border: "hsl(var(--border))",
+            input: "hsl(var(--input))",
+            ring: "hsl(var(--ring))",
+            background: "hsl(var(--background))",
+            foreground: "hsl(var(--foreground))",
+            primary: {
+              DEFAULT: "hsl(var(--primary))",
+              foreground: "hsl(var(--primary-foreground))",
+            },
+            secondary: {
+              DEFAULT: "hsl(var(--secondary))",
+              foreground: "hsl(var(--secondary-foreground))",
+            },
+            muted: {
+              DEFAULT: "hsl(var(--muted))",
+              foreground: "hsl(var(--muted-foreground))",
+            },
+            accent: {
+              DEFAULT: "hsl(var(--accent))",
+              foreground: "hsl(var(--accent-foreground))",
+            },
+            card: {
+              DEFAULT: "hsl(var(--card))",
+              foreground: "hsl(var(--card-foreground))",
+            },
+          },
+          borderRadius: {
+            lg: "var(--radius)",
+            md: "calc(var(--radius) - 2px)",
+            sm: "calc(var(--radius) - 4px)",
+          },
+        },
+      },
+    }
+  </script>
+
   <!-- Tabulator CSS and JS -->
   <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
   <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 
   <!-- D3.js for color scales -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-  
-  <!-- Date parsing and normalizaiton -->
+
+  <!-- Date parsing and normalization -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chrono-node/1.0.5/chrono.min.js"></script>
-  
-  <!-- Font Awesome for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+  <!-- Lucide Icons (similar to shadcn) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
   <link rel="stylesheet" href="papersfeed.css">
 </head>
-<body>
-  <div class="header">
-    <div class="header-title">
-        <h1>What I Am Reading</h1>
-        <p class="header-desc">By <a href="https://bsky.app/profile/digthatdata.bsky.social">@DigThatData</a>. Learn more <a href="https://github.com/dmarx/papers-feed-template">here</a>.</p>
-    </div>
-
-    <div class="heatmap-container">
-      <div class="heatmap-title">
-        <select id="heatmap-metric-selector" class="heatmap-dropdown">
-          <option value="papers">Papers per day</option>
-          <option value="time">Reading time per day</option>
-          <option value="sessions">Sessions per day</option>
-          <option value="discoveries">Papers discovered per day</option>
-        </select>
-
-        <div class="heatmap-legend">
-          <span>Less</span>
-          <div class="legend-cell" style="background-color: #ebedf0;"></div>
-          <div class="legend-cell" style="background-color: #c6e48b;"></div>
-          <div class="legend-cell" style="background-color: #7bc96f;"></div>
-          <div class="legend-cell" style="background-color: #239a3b;"></div>
-          <div class="legend-cell" style="background-color: #196127;"></div>
-          <span>More</span>
+<body class="bg-background text-foreground">
+  <header class="sticky top-0 z-40 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+    <div class="container flex h-auto flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-center justify-between">
+        <div class="header-title">
+          <h1 class="text-2xl md:text-3xl font-bold tracking-tight">What I Am Reading</h1>
+          <p class="text-sm text-muted-foreground mt-1">
+            By <a href="https://bsky.app/profile/digthatdata.bsky.social" class="text-primary hover:underline">@DigThatData</a>.
+            Learn more <a href="https://github.com/dmarx/papers-feed-template" class="text-primary hover:underline">here</a>.
+          </p>
         </div>
 
+        <!-- Theme Toggle Button -->
+        <button id="theme-toggle" class="ml-4 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10">
+          <i data-lucide="sun" class="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"></i>
+          <i data-lucide="moon" class="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"></i>
+          <span class="sr-only">Toggle theme</span>
+        </button>
       </div>
-      <div id="reading-heatmap"></div>
-    </div>
 
-    <div class="controls">
-      <div class="search-box">
-        <input type="text" id="search-input" placeholder="Search papers by title, author, or content...">
-        <button class="clear-search-btn" id="clear-search" title="Clear search">×</button>
+      <!-- Heatmap Container -->
+      <div class="flex-1 min-w-0 hidden md:flex flex-col items-center justify-center px-4">
+        <div class="heatmap-title flex items-center justify-between gap-4 mb-2 w-full">
+          <select id="heatmap-metric-selector" class="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            <option value="papers">Papers per day</option>
+            <option value="time">Reading time per day</option>
+            <option value="sessions">Sessions per day</option>
+            <option value="discoveries">Papers discovered per day</option>
+          </select>
+
+          <div class="flex items-center gap-1 text-xs text-muted-foreground">
+            <span>Less</span>
+            <div class="w-2.5 h-2.5 border border-border rounded-sm" style="background-color: #ebedf0;"></div>
+            <div class="w-2.5 h-2.5 border border-border rounded-sm" style="background-color: #c6e48b;"></div>
+            <div class="w-2.5 h-2.5 border border-border rounded-sm" style="background-color: #7bc96f;"></div>
+            <div class="w-2.5 h-2.5 border border-border rounded-sm" style="background-color: #239a3b;"></div>
+            <div class="w-2.5 h-2.5 border border-border rounded-sm" style="background-color: #196127;"></div>
+            <span>More</span>
+          </div>
+        </div>
+        <div id="reading-heatmap" class="w-full flex justify-center"></div>
       </div>
-      <button class="filter-button" id="sidebar-toggle">
-        <i class="fas fa-filter"></i> Filters
+
+      <!-- Search and Controls -->
+      <div class="flex-1 max-w-md flex gap-2">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"></i>
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Search papers..."
+            class="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+          <button id="clear-search" class="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-accent transition-colors text-muted-foreground hover:text-foreground">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+        <button id="sidebar-toggle" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4">
+          <i data-lucide="filter" class="h-4 w-4 mr-2"></i>
+          Filters
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Filter Status Bar -->
+  <div id="filter-status-bar" class="hidden border-b border-border bg-muted/40 px-4 py-2">
+    <div class="container flex flex-wrap items-center gap-2">
+      <span class="text-sm font-semibold text-muted-foreground">Active filters:</span>
+      <div id="filter-badges" class="flex flex-wrap gap-2 flex-1"></div>
+      <button id="clear-all-filters" class="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-destructive text-destructive-foreground hover:bg-destructive/90 h-8 px-3">
+        Clear All
       </button>
     </div>
   </div>
-
-  <!-- Filter Status Bar -->
-  <div class="filter-status-bar" id="filter-status-bar" style="display: none;">
-    <div class="filter-status-content">
-      <span class="filter-status-label">Active filters:</span>
-      <div class="filter-badges" id="filter-badges"></div>
-      <button class="clear-all-filters-btn" id="clear-all-filters">Clear All</button>
-    </div>
-  </div>
   
-  <div class="dashboard-container">
-    <div class="main-content">
-      <div id="papers-table">
-        <div class="loading">Loading papers data...</div>
+  <main class="container flex-1 relative overflow-hidden">
+    <div class="flex h-full">
+      <div class="flex-1 overflow-hidden">
+        <div id="papers-table" class="h-full">
+          <div class="flex items-center justify-center h-64">
+            <div class="flex flex-col items-center gap-2">
+              <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+              <p class="text-sm text-muted-foreground">Loading papers data...</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+  </main>
     
     <!-- Filter Sidebar -->
-    <div class="sidebar" id="sidebar">
-      <h3>Filters</h3>
-      
-      <div class="filter-section">
-        <h4>Publication Date</h4>
-        <div id="date-filter-controls">
-          <div>
-            <label for="date-filter-from">From:</label>
-            <input type="date" id="date-filter-from">
+    <aside id="sidebar" class="fixed right-0 top-0 z-50 h-screen w-80 border-l border-border bg-card transform translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-lg font-semibold">Filters</h3>
+          <button class="sidebar-close inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent" onclick="document.getElementById('sidebar').classList.remove('sidebar-active')">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <!-- Publication Date -->
+        <div class="space-y-4 mb-6 pb-6 border-b border-border">
+          <h4 class="text-sm font-medium">Publication Date</h4>
+          <div class="space-y-3">
+            <div class="space-y-2">
+              <label for="date-filter-from" class="text-sm text-muted-foreground">From:</label>
+              <input type="date" id="date-filter-from" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            </div>
+            <div class="space-y-2">
+              <label for="date-filter-to" class="text-sm text-muted-foreground">To:</label>
+              <input type="date" id="date-filter-to" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            </div>
+            <div class="flex gap-2">
+              <button id="apply-date-filter" class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4">Apply</button>
+              <button id="clear-date-filter" class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4">Clear</button>
+            </div>
           </div>
-          <div style="margin-top: 10px;">
-            <label for="date-filter-to">To:</label>
-            <input type="date" id="date-filter-to">
+        </div>
+
+        <!-- Reading Time -->
+        <div class="space-y-4 mb-6 pb-6 border-b border-border">
+          <h4 class="text-sm font-medium">Reading Time</h4>
+          <div class="space-y-3">
+            <div class="space-y-2">
+              <label for="min-reading-time" class="text-sm text-muted-foreground">Minimum (minutes):</label>
+              <input type="number" id="min-reading-time" min="0" step="1" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            </div>
+            <div class="flex gap-2">
+              <button id="apply-reading-filter" class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4">Apply</button>
+              <button id="clear-reading-filter" class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4">Clear</button>
+            </div>
           </div>
-          <div style="margin-top: 15px;">
-            <button id="apply-date-filter" class="filter-button">Apply</button>
-            <button id="clear-date-filter" class="filter-button">Clear</button>
+        </div>
+
+        <!-- Interaction Days -->
+        <div class="space-y-4 mb-6 pb-6 border-b border-border">
+          <h4 class="text-sm font-medium">Interaction Days</h4>
+          <div class="space-y-3">
+            <div class="space-y-2">
+              <label for="min-interaction-days" class="text-sm text-muted-foreground">Minimum days:</label>
+              <input type="number" id="min-interaction-days" min="0" step="1" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            </div>
+            <div class="flex gap-2">
+              <button id="apply-days-filter" class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4">Apply</button>
+              <button id="clear-days-filter" class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4">Clear</button>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <div class="filter-section">
-        <h4>Reading Time</h4>
-        <div>
-          <label for="min-reading-time">Minimum (minutes):</label>
-          <input type="number" id="min-reading-time" min="0" step="1">
-        </div>
-        <div style="margin-top: 10px;">
-          <button id="apply-reading-filter" class="filter-button">Apply</button>
-          <button id="clear-reading-filter" class="filter-button">Clear</button>
+
+        <!-- Reset All -->
+        <div class="space-y-4">
+          <h4 class="text-sm font-medium">Reset All Filters</h4>
+          <button id="reset-all-filters" class="w-full inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4">Reset All</button>
         </div>
       </div>
-      
-      <div class="filter-section">
-        <h4>Interaction Days</h4>
-        <div>
-          <label for="min-interaction-days">Minimum days:</label>
-          <input type="number" id="min-interaction-days" min="0" step="1">
-        </div>
-        <div style="margin-top: 10px;">
-          <button id="apply-days-filter" class="filter-button">Apply</button>
-          <button id="clear-days-filter" class="filter-button">Clear</button>
-        </div>
-      </div>
-      
-      <div class="filter-section">
-        <h4>Reset All Filters</h4>
-        <button id="reset-all-filters" class="filter-button">Reset All</button>
-      </div>
-    </div>
+    </aside>
     
-    <div class="sidebar" id="details-sidebar">
-      <button class="close-button" onclick="hideDetails()">×</button>
-      <div class="details-scroll-content">
+    <!-- Details Sidebar -->
+    <aside id="details-sidebar" class="fixed right-0 top-0 z-[60] h-screen w-96 border-l border-border bg-card transform translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto">
+      <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent z-10" onclick="hideDetails()">
+        <i data-lucide="x" class="h-4 w-4"></i>
+      </button>
+      <div class="p-6">
         <div id="details-content"></div>
       </div>
-    </div>
-  </div>
-  
-  <button id="filter-toggle-btn" title="Toggle Filters">
-    <i class="fas fa-filter"></i>
+    </aside>
+
+  <!-- Floating Filter Button (Mobile) -->
+  <button id="filter-toggle-btn" class="fixed bottom-6 right-6 z-40 md:hidden inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all">
+    <i data-lucide="filter" class="h-6 w-6"></i>
+    <span class="sr-only">Toggle Filters</span>
   </button>
 
+  <!-- Overlay for sidebars -->
+  <div id="sidebar-overlay" class="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 hidden"></div>
+
   <script src="papersfeed.js"></script>
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+  </script>
 </body>
 </html>

@@ -1,4 +1,82 @@
 // frontend/papersfeed.js
+
+// theme toggle
+(function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+
+  // Set up theme toggle button
+  document.addEventListener('DOMContentLoaded', () => {
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      });
+    }
+  });
+})();
+
+// sidebar toggle
+(function initSidebars() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const sidebar = document.getElementById('sidebar');
+    const detailsSidebar = document.getElementById('details-sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const filterToggleBtn = document.getElementById('filter-toggle-btn');
+    const overlay = document.getElementById('sidebar-overlay');
+
+    function openSidebar(el) {
+      el.classList.add('sidebar-active');
+      overlay.classList.add('active');
+    }
+
+    function closeSidebar(el) {
+      el.classList.remove('sidebar-active');
+      overlay.classList.remove('active');
+    }
+
+    function closeAllSidebars() {
+      closeSidebar(sidebar);
+      closeSidebar(detailsSidebar);
+    }
+
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener('click', () => {
+        const isActive = sidebar.classList.contains('sidebar-active');
+        closeAllSidebars();
+        if (!isActive) {
+          openSidebar(sidebar);
+        }
+      });
+    }
+
+    if (filterToggleBtn) {
+      filterToggleBtn.addEventListener('click', () => {
+        const isActive = sidebar.classList.contains('sidebar-active');
+        closeAllSidebars();
+        if (!isActive) {
+          openSidebar(sidebar);
+        }
+      });
+    }
+
+    // Close sidebars when clicking overlay
+    if (overlay) {
+      overlay.addEventListener('click', closeAllSidebars);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAllSidebars();
+      }
+    });
+  });
+})();
+
 // Global variables
 let table;
 let allData = [];
@@ -8,7 +86,7 @@ let interactionDaysColorScale = null;
 let readingActivityData = [];
 let currentHeatmapMetric = 'papers';
 
-// Utility function to normalize dates using Chrono
+// normalize dates using Chrono
 function normalizeDate(dateString) {
   if (!dateString) return null;
   
@@ -37,26 +115,16 @@ function normalizeDate(dateString) {
   }
 }
 
-/**
- * Calculate the number of days between two dates
- * @param {string} startDate - Date in 'YYYY-MM-DD' format
- * @param {string} endDate - Date in 'YYYY-MM-DD' format
- * @returns {number} Number of days between the dates (positive if endDate is after startDate)
- */
+// calculate days between two dates
 function daysBetween(startDate, endDate) {
   const start = new Date(startDate);
   const end = new Date(endDate);
-  
-  // Calculate the difference in milliseconds
   const diffTime = end - start;
-  
-  // Convert to days (1 day = 24 * 60 * 60 * 1000 milliseconds)
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
   return diffDays;
 }
 
-// Filter Manager for unified filter state
+// unified filter state manager
 class FilterManager {
   constructor(table) {
     this.table = table;
@@ -91,27 +159,19 @@ class FilterManager {
           .every(filter => filter.fn(data));
       });
     }
-    
-    // Update heatmap with filtered data
     this.updateHeatmap();
   }
   
   updateHeatmap() {
-    // If viewing paper details, show only that paper's activity
     if (currentDetailsPaper) {
       const singlePaperActivity = extractReadingActivityData([currentDetailsPaper], currentHeatmapMetric);
       createReadingHeatmap(singlePaperActivity);
       return;
     }
-    
-    // Otherwise, get currently filtered data from the table
+
     const filteredData = this.table.getData("active");
     console.log("Updating heatmap with", filteredData.length, "filtered papers");
-    
-    // Extract reading activity from filtered data
     const filteredActivityData = extractReadingActivityData(filteredData, currentHeatmapMetric);
-    
-    // Recreate the heatmap with filtered data
     createReadingHeatmap(filteredActivityData);
   }
   
@@ -133,18 +193,16 @@ class FilterManager {
   }
 }
 
-// Filter Status Bar UI Component
+// filter status bar UI
 class FilterStatusBar {
   constructor(filterManager) {
     this.filterManager = filterManager;
     this.container = document.getElementById('filter-status-bar');
     this.badgeContainer = document.getElementById('filter-badges');
     this.clearAllBtn = document.getElementById('clear-all-filters');
-    
-    // Listen for filter changes
+
     this.filterManager.addListener(() => this.render());
-    
-    // Set up clear all button
+
     this.clearAllBtn.addEventListener('click', () => {
       this.filterManager.clearAll();
     });
@@ -152,15 +210,15 @@ class FilterStatusBar {
   
   render() {
     const activeFilters = this.filterManager.getActiveFilters();
-    
+
     if (activeFilters.length === 0) {
-      this.container.style.display = 'none';
+      this.container.classList.add('hidden');
       return;
     }
-    
-    this.container.style.display = 'block';
+
+    this.container.classList.remove('hidden');
     this.badgeContainer.innerHTML = '';
-    
+
     activeFilters.forEach(({name, description}) => {
       const badge = this.createFilterBadge(name, description);
       this.badgeContainer.appendChild(badge);
@@ -170,12 +228,11 @@ class FilterStatusBar {
   createFilterBadge(name, description) {
     const badge = document.createElement('div');
     badge.className = 'filter-badge';
-    
-    // Add preview styling for search preview
+
     if (name === 'search-preview') {
       badge.classList.add('preview');
     }
-    
+
     const text = document.createElement('span');
     text.textContent = description;
     
@@ -185,8 +242,7 @@ class FilterStatusBar {
     removeBtn.title = `Remove ${description} filter`;
     removeBtn.addEventListener('click', () => {
       this.filterManager.removeFilter(name);
-      
-      // If removing search preview, also clear the input
+
       if (name === 'search-preview') {
         document.getElementById("search-input").value = "";
         currentPreviewSearchTerm = null;
@@ -636,14 +692,28 @@ function displayPaperDetails(paperId) {
   `;
   
   // Show the sidebar
-  detailsSidebar.classList.add('active');
+  detailsSidebar.classList.add('sidebar-active');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (overlay) {
+    overlay.classList.add('active');
+  }
+
+  // Reinitialize Lucide icons for the newly added content
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
 }
 
 function hideDetails() {
   const detailsSidebar = document.getElementById('details-sidebar');
-  detailsSidebar.classList.remove('active');
+  const overlay = document.getElementById('sidebar-overlay');
+
+  detailsSidebar.classList.remove('sidebar-active');
+  if (overlay) {
+    overlay.classList.remove('active');
+  }
   currentDetailsPaper = null;
-  
+
   // Restore heatmap to show filtered data or all data
   if (filterManager && filterManager.filters.size > 0) {
     // If filters are active, show filtered data
@@ -652,6 +722,11 @@ function hideDetails() {
     // If no filters, show all data
     const activityData = extractReadingActivityData(allData, currentHeatmapMetric);
     createReadingHeatmap(activityData);
+  }
+
+  // Reinitialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
   }
 }
 
@@ -931,9 +1006,12 @@ function initTable(data) {
   // Initialize filter manager and status bar
   filterManager = new FilterManager(table);
   filterStatusBar = new FilterStatusBar(filterManager);
-  
+
   // Remove loading message
-  document.querySelector(".loading").style.display = "none";
+  const loadingEl = document.querySelector("#papers-table > div");
+  if (loadingEl) {
+    loadingEl.remove();
+  }
   
   // Set up global click handler for the table
   document.getElementById("papers-table").addEventListener("click", function(e) {
@@ -1095,29 +1173,7 @@ function setupEventListeners() {
     currentPreviewSearchTerm = null;
   });
   
-  // Toggle filter sidebar
-  document.getElementById("sidebar-toggle").addEventListener("click", function() {
-    document.getElementById("sidebar").classList.toggle("active");
-    
-    // Close details sidebar if open (to avoid both being open at once)
-    document.getElementById("details-sidebar").classList.remove("active");
-  });
-  
-  // Floating filter button
-  document.getElementById("filter-toggle-btn").addEventListener("click", function() {
-    document.getElementById("sidebar").classList.toggle("active");
-    
-    // Close details sidebar if open (to avoid both being open at once)
-    document.getElementById("details-sidebar").classList.remove("active");
-  });
-  
-  // Toggle details with keyboard escape key
-  document.addEventListener("keydown", function(e) {
-    if (e.key === "Escape") {
-      document.getElementById("details-sidebar").classList.remove("active");
-      document.getElementById("sidebar").classList.remove("active");
-    }
-  });
+  // Note: Sidebar toggle functionality is now handled by the initSidebars IIFE at the top of this file
   
   // Date range filters
   document.getElementById("apply-date-filter").addEventListener("click", function() {
@@ -1230,9 +1286,27 @@ document.addEventListener("DOMContentLoaded", function() {
       createReadingHeatmap(activityData);
       
       setupEventListeners();
+
+      // Reinitialize Lucide icons after all DOM updates
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
     })
     .catch(error => {
-      document.querySelector(".loading").innerHTML = 
-        `Error loading data: ${error.message}. Make sure data.json exists in the same directory as this HTML file.`;
+      const tableContainer = document.querySelector("#papers-table");
+      if (tableContainer) {
+        tableContainer.innerHTML = `
+          <div class="flex flex-col items-center justify-center h-64 text-center p-8">
+            <i data-lucide="alert-circle" class="h-12 w-12 text-destructive mb-4"></i>
+            <h3 class="text-lg font-semibold mb-2">Error Loading Data</h3>
+            <p class="text-sm text-muted-foreground">${error.message}</p>
+            <p class="text-xs text-muted-foreground mt-2">Make sure gh-store-snapshot.json exists in the same directory.</p>
+          </div>
+        `;
+        // Reinitialize Lucide icons for error state
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      }
     });
 });
